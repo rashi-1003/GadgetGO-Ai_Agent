@@ -1,0 +1,687 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message.text }}",
+        "options": {
+          "systemMessage": "=## Persona & Role ##\nYou are 'Gigi', the friendly, helpful, and expert AI assistant for GadgetGo, the premier online store for the latest tech gadgets. Your personality is professional yet approachable and enthusiastic about technology. You guide customers through conversations step-by-step.\n\n## Primary Objective ##\nYour goal is to provide an interactive and helpful conversational experience. You must distinguish between user-facing messages and internal system outputs, assisting with product discovery, answering questions accurately, and guiding users through the ordering or cancellation process in a structured manner.\n\n## Core Capabilities & Tools ##\n- **get_all_categories()**: Use this tool to get a list of all available product categories.\n- **get_products_by_category(category)**: Use this tool to get a list of all products within a specific category.\n- **get_product_details(product_name or product_id)**: Use this tool to find all details for a single product, including stock count.\n- **faq_tool(query)**: Use this to answer any general questions about shipping, returns, warranty, and our policies.\n- **discount_tool()**: Use this to fetch a list of all current discounts and offers available.\n- **get_order_status(order_id)**: Use this tool to get the current 'shipping_status' of an order.\n- **cancel_order(order_id)**: Use this tool to cancel an order. It will succeed if the order has not been shipped.\n\n## CRITICAL RULES & WORKFLOWS ##\nFollow these workflows precisely. Do not skip steps.\n\n### 1. Welcome & General Queries ###\n- **Welcome Message**: Your VERY FIRST message in a new conversation MUST be:\n  \"Hi there! 👋 Welcome to GadgetGo. I'm Gigi, your personal AI assistant. You can ask me about our products, check for discounts, or get help with an order. How can I help you today?\"\n\n- **FAQ Handling**: If a user asks a general question (e.g., \"what's your return policy?\"), you **MUST** use the `faq_tool` to find the answer and provide it directly as plain text.\n\n- **Discount Handling**: If a user asks about \"offers\" or \"discounts\", you **MUST** use the `discount_tool` to get all current promotions and list each one clearly.\n\n- **Inventory & Product Specifics (CRITICAL FIX):** If a user asks if a product is 'in stock', 'available', or asks for details about a specific product outside of the ordering process, you **MUST** use the `get_product_details()` tool with the product's name or ID. After getting the details from the tool, answer the user's specific question. **Do not guess the stock status or product details.**\n\n### 2. Guided Order Placement Workflow ###\n- **Step A: Intent Detection**: If a user expresses intent to buy or order without naming a specific product, initiate this guided flow.\n- **Step B: Category Selection**: Use `get_all_categories()` and ask the user to choose one. Message: \"Awesome! What category of gadgets are you interested in today? We have:\\n- [List of categories, one per line]\"\n\n- **Step C: Display Products**:\n  - Once the user selects a category, use the `get_products_by_category()` tool.\n  - After you receive the list of products from the tool, you MUST iterate through each product in the list. For each product, you will format and send a message using the data from that product object, structured exactly like this:\n  \"**[Product Name]** (ID: [Product ID])\\n*[Description]*\\n**Price:** ₹[Price]\\n**Image:** [Image URL]\\n---\"\n  - After displaying the full list, you MUST ask: \"Which of these would you like to order?\"\n\n- **Step D: Conversational Data Collection**: Once the user confirms the product they want, you will begin collecting their order details. Ask for the following information ONE AT A TIME, waiting for a response after each question:\n    1. \"How many would you like to order?\"\n    2. \"Got it. What is your full name?\"\n    3. \"Thanks! What is the complete shipping address?\"\n    4. \"And what is your email address?\"\n    5. \"Perfect. Lastly, what is your 10-digit contact number? We'll use this to confirm your order.\"\n\n- **Step E: Confirmation Summary**:\n  - After you have collected ALL five pieces of information, your NEXT action is to send a user-facing confirmation message for them to review.\n  - This message MUST be formatted exactly like this:\n  \"Great! Please review your order details one last time:\n  - **Product:** [Quantity]x [Product Name]\n  - **Name:** [Customer Name]\n  - **Address:** [Shipping Address]\n  - **Email:** [Email ID]\n  - **Contact:** [Contact Number]\n\n  Is all of this information correct? Please reply with 'yes' to confirm your order.\"\n\n- **Step F: Final Combined Output:\n\nIf, and only if, the user replies 'yes' or otherwise confirms the details from Step E, your absolute final output for the entire workflow MUST BE a SINGLE block of text containing two parts separated by '|||'.\n\nDO NOT SEND SEPARATE MESSAGES.\n\nThe format MUST be exactly:\n[The user-facing message]|||[The JSON data object]\n\nExample of a perfect final output:\nPerfect, thank you! Your order is now being processed.|||{ \"action\": \"CREATE_ORDER\", \"product_name\": \"SonicPro Headphones\", \"quantity\": 1, \"customer_name\": \"John Doe\", \"shipping_address\": \"123 Tech Lane\", \"email_id\": \"john.doe@email.com\", \"contact_number\": \"9876543210\" }\n3. Direct Product Order Workflow\nIf the user's FIRST message includes a specific product name (e.g., \"I want to buy the Chronos Smartwatch\"), you MUST use get_product_details() to show them the product's details and image.\n\nAsk for confirmation: \"Just to confirm, is this the item you'd like to order?\"\n\nIf they reply \"yes\" or confirm, you MUST then initiate the full \"Conversational Data Collection\" process starting from Step D above.\n\n4. Order Cancellation Workflow\nStep A: Get Order ID: If a user wants to cancel, your first response must be: \"I can help with that. Could you please provide the Order ID you wish to cancel?\"\n\nStep B: Check Status: Once they provide the ID, you MUST use the get_order_status(order_id) tool to check its status. Do not proceed without checking the status.\n\nStep C: Conditional Logic:\n\nIf the status is \"Processing\" or \"Shipped\": Use the cancel_order(order_id) tool. Then, respond with: \"Your order [Order ID] has been successfully cancelled. A confirmation will be sent to your email.\"\n\nIf the status is \"Out for Delivery\" or \"Delivered\": Respond with: \"I'm sorry, but order [Order ID] is already out for delivery and cannot be cancelled at this stage. You may refuse the delivery at your doorstep, and we will process a refund once it returns to our warehouse.\"\n\nIf the tool returns an error (e.g., order not found): Respond with: \"I couldn't find an order with that ID. Please double-check and provide the correct Order ID.\"\n\n5. Other Rules\nHandling Unknowns: If you cannot answer a question with your tools or if the user asks for a human, respond with: \"I'm sorry, I can't assist with that directly. For more specialized help, please email our support team at support@gadgetgo.com.\"\n\nClarity: Always be clear and guide the user. Never assume what they want."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -176,
+        -112
+      ],
+      "id": "88e64057-ceae-406d-b895-465434fffb7d",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -432,
+        176
+      ],
+      "id": "8d67962c-a274-4fd5-87e2-de03799d52ab",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "vRVuFR8vMD2BR0I0",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.message.chat.id }}",
+        "contextWindowLength": 50
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -240,
+        176
+      ],
+      "id": "af54cb8c-6e03-48bb-ab2d-45c0df6ad4b5",
+      "name": "Simple Memory",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Use this tool to find all details for a single product, including its description, price, image URL, and current stock count. It requires the product's name or ID as the 'product_name_or_id' input.\ntake details from this file when user ask for any product related details",
+        "documentId": {
+          "__rl": true,
+          "value": "1kILnAZf3eoDWZHlMpApe2BJqeeTaozlkXTm5cRuTBcE",
+          "mode": "list",
+          "cachedResultName": "GadgetGO",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kILnAZf3eoDWZHlMpApe2BJqeeTaozlkXTm5cRuTBcE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1574511864,
+          "mode": "list",
+          "cachedResultName": "product",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kILnAZf3eoDWZHlMpApe2BJqeeTaozlkXTm5cRuTBcE/edit#gid=1574511864"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -32,
+        176
+      ],
+      "id": "2291bbfd-0828-411a-ad24-39c4201c9bf6",
+      "name": "inventory_check",
+      "notesInFlow": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "W7VEhSk6iUMjBpLk",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1kILnAZf3eoDWZHlMpApe2BJqeeTaozlkXTm5cRuTBcE",
+          "mode": "list",
+          "cachedResultName": "GadgetGO",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kILnAZf3eoDWZHlMpApe2BJqeeTaozlkXTm5cRuTBcE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "discounts/offers",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kILnAZf3eoDWZHlMpApe2BJqeeTaozlkXTm5cRuTBcE/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        128,
+        176
+      ],
+      "id": "e71c9a9b-1350-40f7-9d20-3eaa834e1f09",
+      "name": "discounts/offers",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "W7VEhSk6iUMjBpLk",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1kILnAZf3eoDWZHlMpApe2BJqeeTaozlkXTm5cRuTBcE",
+          "mode": "list",
+          "cachedResultName": "GadgetGO",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kILnAZf3eoDWZHlMpApe2BJqeeTaozlkXTm5cRuTBcE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1383451002,
+          "mode": "list",
+          "cachedResultName": "FAQs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kILnAZf3eoDWZHlMpApe2BJqeeTaozlkXTm5cRuTBcE/edit#gid=1383451002"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        288,
+        176
+      ],
+      "id": "ddd22ec5-0db6-442f-8ed2-b46125762a27",
+      "name": "FAQs",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "W7VEhSk6iUMjBpLk",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -576,
+        -112
+      ],
+      "id": "a0929a4b-ebed-4d96-be85-da766daf5fa7",
+      "name": "Telegram Trigger",
+      "webhookId": "9d09c557-b59a-4e62-9954-96c533641471",
+      "notesInFlow": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "EKJllRyVXVgMeITd",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fa0422d1-74af-4555-b819-252d52e6b224",
+              "name": "message.chat.id",
+              "value": "={{ $json.message.chat.id }}",
+              "type": "number"
+            },
+            {
+              "id": "011b9cb3-cc6c-4972-8e64-a3a48c06691c",
+              "name": "message.text",
+              "value": "={{ $json.message.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -368,
+        -112
+      ],
+      "id": "5c7e0a64-78aa-4bec-9979-b8ef474a1de7",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Start with a try...catch block to handle any potential errors gracefully.\ntry {\n  // Get the incoming data from the IF node.\n  const inputData = $input.item;\n\n  // ERROR CHECK 1: Ensure the .json property exists.\n  if (!inputData.json) {\n    throw new Error(\"The input from the If node did not contain the expected '.json' property.\");\n  }\n\n  const agentData = inputData.json;\n\n  // Get the combined string from the AI's output.\n  const combinedString = agentData.block || agentData.text || agentData.output;\n\n  // ERROR CHECK 2: Check if we found a string at all.\n  if (!combinedString) {\n    throw new Error(\"AI Agent output (from If node) did not contain a 'block', 'text', or 'output' field.\");\n  }\n\n  // --- THE CRITICAL FIX ---\n  // Split the string into two parts using our unique '|||' separator.\n  const parts = combinedString.split('|||');\n\n  // ERROR CHECK 3: Ensure we have both a message and a JSON part.\n  if (parts.length < 2) {\n    throw new Error(\"AI output was not in the expected 'message|||json' format.\");\n  }\n\n  // The JSON data is the second part.\n  const jsonString = parts[1];\n  \n  // The key step: Parse the extracted JSON string.\n  const parsedData = JSON.parse(jsonString);\n\n  // Return the successfully parsed object.\n  return parsedData;\n\n} catch (error) {\n  // ERROR CHECK 4: Catch any other errors.\n  console.error(\"Failed to parse JSON. The raw input was:\", $input.item);\n  throw new Error(`Error in Code Node: ${error.message}`);\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        -128
+      ],
+      "id": "718a8681-6475-47ee-aead-529d725839e0",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1kILnAZf3eoDWZHlMpApe2BJqeeTaozlkXTm5cRuTBcE",
+          "mode": "list",
+          "cachedResultName": "GadgetGO",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kILnAZf3eoDWZHlMpApe2BJqeeTaozlkXTm5cRuTBcE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1305146689,
+          "mode": "list",
+          "cachedResultName": "order",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1kILnAZf3eoDWZHlMpApe2BJqeeTaozlkXTm5cRuTBcE/edit#gid=1305146689"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "product_name": "={{ $json.product_name }}",
+            "quantity": "={{  $json.quantity }}",
+            "date_of_order": "={{ new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) }}",
+            "customer_name": "={{  $json.customer_name}}",
+            "customer_contactinfo": "={{  $json.contact_number}}",
+            "shipping address": "={{  $json.shipping_address}}",
+            "shipping_status": "={{  $json.action}}",
+            "order _id": "=GGO-{{ $json.contact_number.slice(-10) }}-{{ new Date().toISOString().split('T')[0].replace(/-/g, '') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "order _id",
+              "displayName": "order _id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "product_name",
+              "displayName": "product_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "quantity",
+              "displayName": "quantity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date_of_order",
+              "displayName": "date_of_order",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "customer_contactinfo",
+              "displayName": "customer_contactinfo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "shipping address",
+              "displayName": "shipping address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "shipping_status",
+              "displayName": "shipping_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        592,
+        -128
+      ],
+      "id": "810d5172-2a0e-4744-b2ee-537f5291eb27",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "W7VEhSk6iUMjBpLk",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8871b8b8-d893-47fe-a3d5-c1519a544016",
+              "leftValue": "={{ $('Telegram Trigger').item.json.message.text }}",
+              "rightValue": "=yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "3378f91c-3543-4955-be0f-90eed45851c1",
+              "leftValue": "={{ $('Telegram Trigger').item.json.message.text }}",
+              "rightValue": "YES",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "498292f3-101e-4817-ba14-7802e4fe432c",
+              "leftValue": "={{ $('Telegram Trigger').item.json.message.text }}",
+              "rightValue": "Yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        176,
+        -112
+      ],
+      "id": "03fe6c22-56c7-4ed7-82a2-cb54f2001235",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $('AI Agent').item.json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        800,
+        -128
+      ],
+      "id": "97124815-179c-44bd-a54a-ab5ae2684ad4",
+      "name": "Send a text message1",
+      "webhookId": "a9ca7586-37b0-4cb2-a7e6-08cfac214abd",
+      "credentials": {
+        "telegramApi": {
+          "id": "EKJllRyVXVgMeITd",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Workflow Logic:\n\nStep 1: The Conversation Starts 💬\nThe workflow is triggered via the Telegram API the moment a user sends a message to the bot.\n\nStep 2: The AI Brain Engages 🧠\nN8n activates the Google Gemini AI assistant (Gigi). It analyzes the user's intent and uses its specialized tools to access real-time data from Google Sheets, such as checking inventory, finding discounts, or answering FAQs.\n\nStep 3: The Smart Decision 🛤️\nAn 'If' node intelligently routes the conversation based on the user's goal: a simple information request or a full order placement.\n\nStep 4: Mission Accomplished ✅\nN8n completes the job. It sends simple answers via the Telegram API. For orders, it confirms via Telegram, logs the sale to Google Sheets, and dispatches a final confirmation email using the Gmail API.",
+        "height": 464,
+        "width": 432,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1008,
+        -128
+      ],
+      "typeVersion": 1,
+      "id": "8df91308-3b30-482d-8642-f79933f064f0",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## GadgetGO\nThis workflow powers 'Gigi', a dynamic conversational AI agent for the \"GadgetGo\" e-commerce store. Deployed on Telegram, it serves as the primary point of contact for customers. The agent is designed to handle a wide range of interactions, from initial product discovery and answering frequently asked questions to managing the complete, multi-step order placement and cancellation processes. It provides a seamless, interactive shopping experience for users, reducing the need for human intervention for common tasks and ensuring support is always available.",
+        "height": 192,
+        "width": 880,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -688,
+        -336
+      ],
+      "typeVersion": 1,
+      "id": "9e663afa-76ea-4c13-a265-ada7163e3ac4",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Code in JavaScript').item.json.email_id }}",
+        "subject": "=order confirmation-{ (order id: {{ $('Append row in sheet').item.json['order _id'] }})",
+        "message": "=Hi {{ $('Code in JavaScript').item.json.customer_name }}! 👋\n\nGreat news! Your GadgetGo order has been confirmed. We're now getting it ready for shipment. 🚀\n\n---\n📋 ORDER SUMMARY\n---\nOrder ID:{{ $('Append row in sheet').item.json['order _id'] }}\nProduct: {{ $('Code in JavaScript').item.json.quantity }}x {{ $('Code in JavaScript').item.json.product_name }}\n\n---\n🚚 SHIP TO\n---\n{{ $('Code in JavaScript').item.json.shipping_address }}\n---\n\nIf you have any questions, we're here to help! 😊\n\nThanks,\nThe GadgetGo Team",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        800,
+        160
+      ],
+      "id": "b40a756b-0369-410f-b6c3-68adef706488",
+      "name": "Send a message",
+      "webhookId": "e1e1587d-25b3-47ca-a1e7-731f57cbc9bf",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "JlgGP0T5pdJ452nu",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $('AI Agent').item.json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        496,
+        160
+      ],
+      "id": "aa7a6f28-a31f-4ce5-895a-f39fb4e80b87",
+      "name": "Send a text message2",
+      "webhookId": "a9ca7586-37b0-4cb2-a7e6-08cfac214abd",
+      "credentials": {
+        "telegramApi": {
+          "id": "EKJllRyVXVgMeITd",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Tools & APIs Used:\n\nTelegram API: Handles all communication with the user, both receiving messages to trigger the workflow and sending responses back to the chat.\n\nGoogle Gemini: The core AI model that powers the 'Gigi' assistant. It enables the bot to understand natural language, make decisions, and manage the conversational flow.\n\nGoogle Sheets: Functions as the live database for the business. It is used by the AI's tools to look up real-time information (FAQs, inventory, discounts) and is the final destination for logging new order details.\n\nGmail API: Used in the final step of the order process to automatically send a professional, HTML-formatted confirmation email directly to the customer.",
+        "height": 192,
+        "width": 1216,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        224,
+        -336
+      ],
+      "typeVersion": 1,
+      "id": "6c2c0463-3982-4c47-a0fd-9f4ac108b244",
+      "name": "Sticky Note2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "inventory_check": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "discounts/offers": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FAQs": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "3dc50fe3-6dd4-4407-8ee0-0d5544b462b9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3dcbde6ca19835a096157ee4f26c010d81e5abb53d2188ec3303a4a0d7e10ce6"
+  },
+  "id": "nhp4pu2mQpRECycY",
+  "tags": []
+}
